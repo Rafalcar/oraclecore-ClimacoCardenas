@@ -28,6 +28,12 @@ CREATE OR REPLACE PACKAGE PKG_TTEM_CATALOG AS
     e_catalog_no_existe EXCEPTION;
     e_item_no_existe EXCEPTION;
     e_item_duplicado EXCEPTION;
+    
+    -- Consulta de Item 
+    PROCEDURE P_GET_ITEM_ID (
+        p_item_id IN NUMBER,
+        p_item_json OUT CLOB
+    );   
 
     -- Operación para Insertar Ítems
     PROCEDURE P_INSERT_ITEM (
@@ -69,6 +75,51 @@ END PKG_TTEM_CATALOG;
 -- Cuerpo del paquete donde se realiza la accion
 
 CREATE OR REPLACE PACKAGE BODY PKG_TTEM_CATALOG AS
+
+    -- Implementacion de Consulta de Item 
+    PROCEDURE P_GET_ITEM_ID (
+        p_item_id IN NUMBER,
+        p_item_json OUT CLOB -- parametro de salida CLOB
+    ) AS
+
+    l_count NUMBER;
+
+    BEGIN
+
+    -- Validamos la existencia del item
+
+    SELECT COUNT(*)
+    INTO l_count
+    FROM ttem_item
+    WHERE item_id = p_item_id;
+
+    IF l_count = 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20003,
+            'Item no existe'
+        );
+    END IF;
+
+    -- Construcción del JSON usando funciones nativas Oracle
+    SELECT JSON_OBJECT(
+               'itemId' VALUE i.item_id,
+               'catalogId' VALUE c.cat_id,
+               'catalogCode' VALUE c.cat_code,
+               'itemCode' VALUE i.item_code,
+               'name' VALUE i.item_name,
+               'value' VALUE i.item_value,
+               'status' VALUE i.status,
+               'validFrom' VALUE TO_CHAR(i.valid_from, 'YYYY-MM-DD'),
+               'validTo' VALUE TO_CHAR(i.valid_to, 'YYYY-MM-DD')
+               RETURNING CLOB
+           )
+    INTO p_item_json --parametro de salida que recibe la informacion
+    FROM ttem_item i
+         INNER JOIN ttem_catalog c
+             ON c.cat_id = i.cat_id
+    WHERE i.item_id = p_item_id;
+
+    END P_GET_ITEM_ID;
 
     -- Implementación de Insertar
     PROCEDURE P_INSERT_ITEM (
