@@ -23,6 +23,12 @@ CREATE OR REPLACE TYPE TYP_TTEM_ITEM_TAB AS TABLE OF TYP_TTEM_ITEM;
 
 CREATE OR REPLACE PACKAGE PKG_TTEM_CATALOG AS
 
+
+    /* Excepciones de negocio */
+    e_catalog_no_existe EXCEPTION;
+    e_item_no_existe EXCEPTION;
+    e_item_duplicado EXCEPTION;
+
     -- Operación para Insertar Ítems
     PROCEDURE P_INSERT_ITEM (
         p_item_id       IN NUMBER,
@@ -75,7 +81,33 @@ CREATE OR REPLACE PACKAGE BODY PKG_TTEM_CATALOG AS
         p_valid_from    IN DATE,
         p_user          IN VARCHAR2
     ) AS
+    
+        l_count NUMBER;
+        
     BEGIN
+        
+        -- Validar que exista el catálogo
+        SELECT COUNT(*)
+        INTO l_count
+        FROM ttem_catalog
+        WHERE cat_id = p_cat_id;
+
+        IF l_count = 0 THEN
+            RAISE_APPLICATION_ERROR(-20001, 'Catalogo no existe');
+        END IF;
+
+        -- Validar item duplicado dentro del catálogo
+        SELECT COUNT(*)
+        INTO l_count
+        FROM ttem_item
+        WHERE cat_id = p_cat_id
+          AND item_code = p_item_code;
+
+        IF l_count > 0 THEN
+            RAISE_APPLICATION_ERROR(-20002, 'Item duplicado');
+        END IF;
+    
+    
         INSERT INTO ttem_item (
             item_id, cat_id, item_code, item_name, item_value, 
             display_order, status, valid_from, created_by, created_at, 
@@ -96,7 +128,21 @@ CREATE OR REPLACE PACKAGE BODY PKG_TTEM_CATALOG AS
         p_status        IN CHAR,
         p_user          IN VARCHAR2
     ) AS
+    
+        l_count NUMBER;
+    
     BEGIN
+    
+        -- Validar existencia del item
+        SELECT COUNT(*)
+        INTO l_count
+        FROM ttem_item
+        WHERE item_id = p_item_id;
+
+        IF l_count = 0 THEN
+            RAISE_APPLICATION_ERROR(-20003, 'Item no existe');
+        END IF;
+    
         UPDATE ttem_item
         SET item_name     = p_item_name,
             item_value    = p_item_value,
@@ -113,7 +159,22 @@ CREATE OR REPLACE PACKAGE BODY PKG_TTEM_CATALOG AS
         p_item_id       IN NUMBER,
         p_user          IN VARCHAR2
     ) AS
+    
+        l_count NUMBER;
+        
     BEGIN
+        
+        -- Validar existencia del item
+        SELECT COUNT(*)
+        INTO l_count
+        FROM ttem_item
+        WHERE item_id = p_item_id;
+
+        IF l_count = 0 THEN
+            RAISE_APPLICATION_ERROR(-20003, 'Item no existe');
+        END IF;
+    
+    
         UPDATE ttem_item
         SET status     = 'I',
             updated_by = p_user,
@@ -126,7 +187,19 @@ CREATE OR REPLACE PACKAGE BODY PKG_TTEM_CATALOG AS
         p_cat_id IN NUMBER
     ) RETURN TYP_TTEM_ITEM_TAB AS
         v_item_list TYP_TTEM_ITEM_TAB := TYP_TTEM_ITEM_TAB(); -- crea una lista vacia en memoria
+        l_count NUMBER;
     BEGIN
+    
+        -- Validar existencia del catálogo
+        SELECT COUNT(*)
+        INTO l_count
+        FROM ttem_catalog
+        WHERE cat_id = p_cat_id;
+
+        IF l_count = 0 THEN
+            RAISE_APPLICATION_ERROR(-20001, 'Catalogo no existe');
+        END IF;
+    
         SELECT TYP_TTEM_ITEM(
                    item_id, cat_id, item_code, item_name, item_value, 
                    display_order, status, valid_from, valid_to
